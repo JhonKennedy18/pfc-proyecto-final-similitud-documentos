@@ -135,7 +135,20 @@ object Similitud {
    * Las parejas que comparten al menos un fragmento, sin repetir y ordenadas.
    * Una misma pareja puede salir de varias entradas del índice.
    */
-  def parejasCandidatas(idx: Indice): Vector[Pareja] = ???
+  def parejasCandidatas(idx: Indice): Vector[Pareja] = {
+    val conjParejas = idx.values.foldLeft(Set.empty[Pareja]) { (acc, docs) =>
+      if (docs.size < 2) acc
+      else {
+        val ordenados = docs.toVector.sorted
+        val nuevos = for {
+          a <- ordenados.indices
+          b <- (a + 1) until ordenados.length
+        } yield (ordenados(a), ordenados(b))
+        acc ++ nuevos
+      }
+    }
+    conjParejas.toVector.sorted
+  }
 
   /**
    * Las mediciones que alcanzan el umbral, de mayor a menor similitud y

@@ -103,4 +103,32 @@ class SimilitudPropiosTest extends AnyFunSuite {
     }
     assert(condicion)
   }
+
+  test("parejasCandidatas 1: índice vacío devuelve vector vacío") {
+    assert(parejasCandidatas(Map.empty[Fragmento, Set[Int]]) == Vector.empty[Pareja])
+  }
+
+  test("parejasCandidatas 2: índice donde cada fragmento aparece en un solo doc da vacío") {
+    val idx: Indice = Map(Vector("a") -> Set(0), Vector("b") -> Set(1), Vector("c") -> Set(2))
+    assert(parejasCandidatas(idx).isEmpty)
+  }
+
+  test("parejasCandidatas 3: deduplica parejas que comparten múltiples fragmentos") {
+    val idx: Indice = Map(
+      Vector("f1") -> Set(0, 2),
+      Vector("f2") -> Set(2, 0),
+      Vector("f3") -> Set(0, 2)
+    )
+    assert(parejasCandidatas(idx) == Vector((0, 2)))
+  }
+
+  test("parejasCandidatas 4: un fragmento compartido por 4 docs genera las 6 parejas ordenadas") {
+    val idx: Indice = Map(Vector("compartido") -> Set(3, 1, 0, 2))
+    assert(parejasCandidatas(idx) == Vector((0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)))
+  }
+
+  test("parejasCandidatas 5: combina entradas disjuntas y solapadas en orden lexicográfico") {
+    val idx: Indice = Map(Vector("x") -> Set(4, 2), Vector("y") -> Set(0, 3, 2))
+    assert(parejasCandidatas(idx) == Vector((0, 2), (0, 3), (2, 3), (2, 4)))
+  }
 }
