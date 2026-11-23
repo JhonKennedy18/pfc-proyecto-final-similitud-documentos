@@ -34,4 +34,40 @@ class SimilitudPropiosTest extends AnyFunSuite {
     val ps = parejas(12)
     assert(ps.distinct.length == ps.length)
   }
+
+  test("similitudes 1: vector de parejas vacío devuelve vector vacío") {
+    val hs = Vector(Set(Vector("a")), Set(Vector("a")))
+    assert(similitudes(hs, Vector.empty[Pareja]) == Vector.empty[Medicion])
+  }
+
+  test("similitudes 2: conserva exactamente el orden de las parejas recibidas") {
+    val hs: Vector[Huella] = Vector(
+      Set(Vector("a"), Vector("b")),
+      Set(Vector("b"), Vector("c")),
+      Set(Vector("a"), Vector("b"))
+    )
+    val ps = Vector((0, 2), (1, 2), (0, 1))
+    val res = similitudes(hs, ps)
+    assert(res.map(m => (m._1, m._2)) == ps)
+    assert(math.abs(res(0)._3 - 1.0) < eps)
+    assert(math.abs(res(1)._3 - (1.0 / 3.0)) < eps)
+    assert(math.abs(res(2)._3 - (1.0 / 3.0)) < eps)
+  }
+
+  test("similitudes 3: funciona sobre subconjunto de parejas (candidatas)") {
+    val hs: Vector[Huella] = Vector(Set(Vector("k1")), Set(Vector("k2")), Set(Vector("k1")))
+    assert(similitudes(hs, Vector((0, 2))) == Vector((0, 2, 1.0)))
+  }
+
+  test("similitudes 4: maneja huellas vacías dentro del corpus sin fallar") {
+    val hs: Vector[Huella] = Vector(Set.empty[Fragmento], Set.empty[Fragmento], Set(Vector("z")))
+    assert(similitudes(hs, parejas(3)) == Vector((0, 1, 0.0), (0, 2, 0.0), (1, 2, 0.0)))
+  }
+
+  test("similitudes 5: todas las similitudes calculadas están en [0.0, 1.0]") {
+    val c = corpusAlAzar(8, 30, 10)
+    val hs = huellas(c, 2)
+    val res = similitudes(hs, parejas(c.length))
+    assert(res.forall { case (_, _, s) => s >= 0.0 && s <= 1.0 })
+  }
 }

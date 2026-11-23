@@ -116,7 +116,8 @@ object Similitud {
     } yield (i, j)).toVector
 
   /** La similitud de cada pareja que se le pase, en el mismo orden. */
-  def similitudes(hs: Vector[Huella], ps: Vector[Pareja]): Vector[Medicion] = ???
+  def similitudes(hs: Vector[Huella], ps: Vector[Pareja]): Vector[Medicion] =
+    ps.map {case (i, j) => (i, j, jaccard(hs(i), hs(j)))}
 
   /**
    * El mapa de cada fragmento al conjunto de documentos donde aparece, con los
