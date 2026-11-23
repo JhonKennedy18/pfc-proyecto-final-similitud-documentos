@@ -81,7 +81,13 @@ object Similitud {
    * Los t - k + 1 fragmentos de k palabras consecutivas, en el orden en que
    * aparecen; el vector vacío si el documento tiene menos de k palabras.
    */
-  def fragmentos(ts: Vector[String], k: Int): Vector[Fragmento] = ???
+  def fragmentos(ts: Vector[String], k: Int): Vector[Fragmento] = {
+    @scala.annotation.tailrec
+    def desde(i: Int, acc: Vector[Fragmento]): Vector[Fragmento] =
+      if (ts.length - i < k) acc
+      else desde(i + 1, acc :+ ts.slice(i, i + k))
+    if (k < 1) Vector() else desde(0, Vector())
+  }
 
   /** El conjunto de fragmentos del documento: un repetido cuenta una vez. */
   def huella(d: Documento, k: Int): Huella = ???
