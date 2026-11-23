@@ -70,4 +70,37 @@ class SimilitudPropiosTest extends AnyFunSuite {
     val res = similitudes(hs, parejas(c.length))
     assert(res.forall { case (_, _, s) => s >= 0.0 && s <= 1.0 })
   }
+
+  test("indiceInvertido 1: vector de huellas vacío produce mapa vacío") {
+    assert(indiceInvertido(Vector.empty[Huella]) == Map.empty[Fragmento, Set[Int]])
+  }
+
+  test("indiceInvertido 2: documentos con huellas vacías producen mapa vacío") {
+    val hs: Vector[Huella] = Vector(Set.empty[Fragmento], Set.empty[Fragmento])
+    assert(indiceInvertido(hs).isEmpty)
+  }
+
+  test("indiceInvertido 3: fragmento presente en todos los documentos mapea a {0, ..., n-1}") {
+    val g = Vector("comun", "todos")
+    val hs: Vector[Huella] = Vector(Set(g), Set(g, Vector("a", "b")), Set(g))
+    val idx = indiceInvertido(hs)
+    assert(idx(g) == Set(0, 1, 2))
+    assert(idx(Vector("a", "b")) == Set(1))
+  }
+
+  test("indiceInvertido 4: huellas disjuntas asignan conjuntos unitarios a cada fragmento") {
+    val hs: Vector[Huella] = Vector(Set(Vector("f0")), Set(Vector("f1")), Set(Vector("f2")))
+    val idx = indiceInvertido(hs)
+    assert(idx == Map(Vector("f0") -> Set(0), Vector("f1") -> Set(1), Vector("f2") -> Set(2)))
+  }
+
+  test("indiceInvertido 5: satisface g in H(d_i) <=> i in I(g) en corpus aleatorio") {
+    val c = corpusAlAzar(10, 40, 12)
+    val hs = huellas(c, 3)
+    val idx = indiceInvertido(hs)
+    val condicion = hs.indices.forall { i =>
+      hs(i).forall(g => idx.get(g).exists(_.contains(i)))
+    }
+    assert(condicion)
+  }
 }

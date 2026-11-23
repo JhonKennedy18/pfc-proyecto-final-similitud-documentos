@@ -123,7 +123,13 @@ object Similitud {
    * El mapa de cada fragmento al conjunto de documentos donde aparece, con los
    * documentos identificados por su posición en el vector de huellas.
    */
-  def indiceInvertido(hs: Vector[Huella]): Indice = ???
+  def indiceInvertido(hs: Vector[Huella]): Indice =
+    hs.indices.foldLeft(Map.empty[Fragmento, Set[Int]]) { (mapa, i) =>
+      hs(i).foldLeft(mapa) { (acc, frag) =>
+        val docs = acc.getOrElse(frag, Set.empty[Int]) + i
+        acc.updated(frag, docs)
+      }
+    }
 
   /**
    * Las parejas que comparten al menos un fragmento, sin repetir y ordenadas.
