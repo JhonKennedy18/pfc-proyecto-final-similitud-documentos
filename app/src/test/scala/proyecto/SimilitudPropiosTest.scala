@@ -131,4 +131,31 @@ class SimilitudPropiosTest extends AnyFunSuite {
     val idx: Indice = Map(Vector("x") -> Set(4, 2), Vector("y") -> Set(0, 3, 2))
     assert(parejasCandidatas(idx) == Vector((0, 2), (0, 3), (2, 3), (2, 4)))
   }
+
+  test("ranking 1: filtra estrictamente con >= umbral (incluye borde exacto)") {
+    val ms: Vector[Medicion] = Vector((0, 1, 0.5), (0, 2, 0.499), (1, 2, 0.8))
+    assert(ranking(ms, 0.5, 10) == Vector((1, 2, 0.8), (0, 1, 0.5)))
+  }
+
+  test("ranking 2: rompe empates determinísticamente por (i, j) ascendente") {
+    val ms: Vector[Medicion] = Vector((2, 3, 0.6), (0, 2, 0.6), (0, 1, 0.6), (1, 2, 0.6))
+    val expected = Vector((0, 1, 0.6), (0, 2, 0.6), (1, 2, 0.6), (2, 3, 0.6))
+    assert(ranking(ms, 0.5, 10) == expected)
+    assert(ranking(ms.reverse, 0.5, 10) == expected)
+  }
+
+  test("ranking 3: trunca correctamente cuando hay más elementos que p") {
+    val ms: Vector[Medicion] = Vector((0, 1, 0.9), (0, 2, 0.8), (0, 3, 0.7), (1, 2, 0.6))
+    assert(ranking(ms, 0.1, 2) == Vector((0, 1, 0.9), (0, 2, 0.8)))
+  }
+
+  test("ranking 4: devuelve vacío si nadie alcanza el umbral o si p <= 0") {
+    val ms: Vector[Medicion] = Vector((0, 1, 0.2), (1, 2, 0.3))
+    assert(ranking(ms, 0.5, 5).isEmpty)
+    assert(ranking(ms, 0.0, 0).isEmpty)
+  }
+
+  test("ranking 5: entrada vacía devuelve vector vacío") {
+    assert(ranking(Vector.empty[Medicion], 0.0, 5).isEmpty)
+  }
 }
