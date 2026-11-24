@@ -50,6 +50,59 @@ class SimilitudParTest extends AnyFunSuite {
     assert(fusionar(i1, Map()) == i1)
   }
 
+  // Pruebas fusionar
+
+  test("Caso 1 - fusionar: une dos índices con claves disjuntas conservando todas las entradas") {
+    val i1: Indice = Map(Vector("el", "gato") -> Set(0, 1))
+    val i2: Indice = Map(Vector("la", "lluvia") -> Set(2, 3))
+    val esperado: Indice = Map(
+      Vector("el", "gato") -> Set(0, 1),
+      Vector("la", "lluvia") -> Set(2, 3)
+    )
+    assert(fusionar(i1, i2) == esperado)
+  }
+
+  test("Caso 2 - fusionar: cuando comparten un fragmento realiza la unión de sus conjuntos sin sobrescribir") {
+    val comun = Vector("caso", "base")
+    val i1: Indice = Map(comun -> Set(0, 1), Vector("a", "b") -> Set(0))
+    val i2: Indice = Map(comun -> Set(1, 2, 3), Vector("c", "d") -> Set(3))
+
+    val res = fusionar(i1, i2)
+    assert(res(comun) == Set(0, 1, 2, 3))
+    assert(res(Vector("a", "b")) == Set(0))
+    assert(res(Vector("c", "d")) == Set(3))
+    assert(res.size == 3)
+  }
+
+  test("Caso 3 - fusionar: cumple identidad con índices vacíos a izquierda y derecha") {
+    val idx: Indice = Map(Vector("scala", "pura") -> Set(0, 2))
+    val vacio: Indice = Map.empty[Fragmento, Set[Int]]
+
+    assert(fusionar(idx, vacio) == idx)
+    assert(fusionar(vacio, idx) == idx)
+    assert(fusionar(vacio, vacio) == vacio)
+  }
+
+  test("Caso 4 - fusionar: es conmutativa (fusionar(i1, i2) == fusionar(i2, i1))") {
+    val i1: Indice = Map(
+      Vector("f1") -> Set(0, 1),
+      Vector("f2") -> Set(2)
+    )
+    val i2: Indice = Map(
+      Vector("f1") -> Set(2, 3),
+      Vector("f3") -> Set(1, 3)
+    )
+    assert(fusionar(i1, i2) == fusionar(i2, i1))
+  }
+
+  test("Caso 5 - fusionar: es asociativa ((i1 U i2) U i3 == i1 U (i2 U i3))") {
+    val i1: Indice = Map(Vector("x") -> Set(0), Vector("y") -> Set(1))
+    val i2: Indice = Map(Vector("x") -> Set(1, 2), Vector("z") -> Set(2))
+    val i3: Indice = Map(Vector("y") -> Set(3), Vector("z") -> Set(0, 3))
+
+    assert(fusionar(fusionar(i1, i2), i3) == fusionar(i1, fusionar(i2, i3)))
+  }
+
   test("indiceInvertidoPar: da lo mismo que la secuencial en los ejemplos") {
     assert(indiceInvertidoPar(huellas(c1, 3)) == indiceInvertido(huellas(c1, 3)))
     assert(indiceInvertidoPar(huellas(c2, 3)) == indiceInvertido(huellas(c2, 3)))

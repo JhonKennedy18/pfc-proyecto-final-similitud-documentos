@@ -31,7 +31,12 @@ object SimilitudPar {
    * Une dos índices. Cuando un fragmento está en los dos, el conjunto
    * resultante es la unión de los dos conjuntos de documentos.
    */
-  def fusionar(i1: Indice, i2: Indice): Indice = ???
+  def fusionar(i1: Indice, i2: Indice): Indice = {
+    val (mayor, menor) = if (i1.size >= i2.size) (i1, i2) else (i2, i1)
+    menor.foldLeft(mayor) { case (acc, (frag, docs)) =>
+      acc.updated(frag, acc.getOrElse(frag, Set.empty[Int]) ++ docs)
+    }
+  }
 
   /**
    * Construye el índice de cada mitad en paralelo y los fusiona.
