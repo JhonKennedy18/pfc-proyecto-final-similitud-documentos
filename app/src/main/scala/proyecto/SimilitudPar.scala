@@ -62,9 +62,20 @@ object SimilitudPar {
 
   /** La solución directa, con las huellas y las comparaciones en paralelo. */
   def detectarDirectoPar(c: Corpus, k: Int, umbral: Double, p: Int,
-                         corte: Int): Vector[Medicion] = ???
+                         corte: Int): Vector[Medicion] = {
+    val hs = huellasPar(c, k)
+    val ps = parejas(c.length)
+    val ss = similitudesPar(hs, ps, corte)
+    ranking(ss, umbral, p)
+  }
 
   /** La solución con índice, con las tres etapas en paralelo. */
   def detectarConIndicePar(c: Corpus, k: Int, umbral: Double, p: Int,
-                           corte: Int): Vector[Medicion] = ???
+                           corte: Int): Vector[Medicion] = {
+    val hs = huellasPar(c, k)
+    val idx = indiceInvertidoPar(hs)
+    val ps = parejasCandidatas(idx)
+    val ss = similitudesPar(hs, ps, corte)
+    ranking(ss, umbral, p)
+  }
 }

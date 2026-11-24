@@ -166,4 +166,122 @@ class SimilitudParTest extends AnyFunSuite {
     assert(detectarDirectoPar(c2, 3, 0.3, 5, 2) == directo)
     assert(detectarConIndicePar(c2, 3, 0.3, 5, 2) == directo)
   }
+
+  // Pruebas de la funcion detectarDirectoPar
+
+  test("Caso 1 - detectarDirectoPar: resuelve el Ejemplo 1 coincidiendo exactamente con detectarDirecto") {
+    val ejemplo1: Corpus = Vector(
+      ("d0", normalizar("el gato duerme en el sofa")),
+      ("d1", normalizar("el gato duerme en la alfombra")),
+      ("d2", normalizar("la lluvia moja el parque"))
+    )
+    val resPar = detectarDirectoPar(ejemplo1, k = 3, umbral = 0.2, p = 5, corte = 2)
+    val resSec = detectarDirecto(ejemplo1, k = 3, umbral = 0.2, p = 5)
+
+    assert(resPar == resSec)
+    assert(resPar.length == 1)
+    assert(resPar.head._1 == 0 && resPar.head._2 == 1)
+  }
+
+  test("Caso 2 - detectarDirectoPar: resuelve el Ejemplo 2 ordenando (0,1) y (2,3) igual que la versión secuencial") {
+    val ejemplo2: Corpus = Vector(
+      ("e0", normalizar("la funcion recursiva termina cuando llega al caso base")),
+      ("e1", normalizar("toda funcion recursiva termina cuando llega al caso base")),
+      ("e2", normalizar("el paralelismo divide el trabajo en tareas independientes")),
+      ("e3", normalizar("el paralelismo divide el trabajo en hilos independientes"))
+    )
+    val resPar = detectarDirectoPar(ejemplo2, k = 3, umbral = 0.3, p = 5, corte = 2)
+    val resSec = detectarDirecto(ejemplo2, k = 3, umbral = 0.3, p = 5)
+
+    assert(resPar == Vector((0, 1, 0.75), (2, 3, 0.5)))
+    assert(resPar == resSec)
+  }
+
+  test("Caso 3 - detectarDirectoPar: con corpusConCopias ubica la pareja copiada de primera en el ranking") {
+    val corpus = corpusConCopias(n = 8, t = 40, v = 100, c = 1, f = 0.85)
+    val resPar = detectarDirectoPar(corpus, k = 3, umbral = 0.1, p = 5, corte = 4)
+    val resSec = detectarDirecto(corpus, k = 3, umbral = 0.1, p = 5)
+
+    assert(resPar.nonEmpty)
+    assert(resPar.head._1 == 0 && resPar.head._2 == 8)
+    assert(resPar == resSec)
+  }
+
+  test("Caso 4 - detectarDirectoPar: invarianza ante distintos valores de corte (1, 4, 16, 64)") {
+    val corpus = corpusConCopias(n = 15, t = 25, v = 30, c = 3, f = 0.7)
+    val esperado = detectarDirecto(corpus, k = 3, umbral = 0.05, p = 10)
+
+    List(1, 4, 16, 64).foreach { c =>
+      assert(detectarDirectoPar(corpus, k = 3, umbral = 0.05, p = 10, corte = c) == esperado)
+    }
+  }
+
+  test("Caso 5 - detectarDirectoPar: corpus vacío o de un solo documento devuelve vector vacío") {
+    assert(detectarDirectoPar(Vector.empty[Documento], k = 3, umbral = 0.1, p = 5, corte = 2) == Vector.empty[Medicion])
+    val unDoc: Corpus = Vector(("unico", normalizar("texto aislado sin parejas")))
+    assert(detectarDirectoPar(unDoc, k = 3, umbral = 0.1, p = 5, corte = 2) == Vector.empty[Medicion])
+  }
+
+  // Pruebas función detectarConIndicePar
+
+  test("Caso 1 - detectarConIndicePar: resuelve el Ejemplo 1 coincidiendo con las tres versiones previas") {
+    val ejemplo1: Corpus = Vector(
+      ("d0", normalizar("el gato duerme en el sofa")),
+      ("d1", normalizar("el gato duerme en la alfombra")),
+      ("d2", normalizar("la lluvia moja el parque"))
+    )
+    val resPar = detectarConIndicePar(ejemplo1, k = 3, umbral = 0.2, p = 5, corte = 2)
+    val resSec = detectarConIndice(ejemplo1, k = 3, umbral = 0.2, p = 5)
+
+    assert(resPar == resSec)
+    assert(resPar.length == 1)
+    assert(resPar.head._1 == 0 && resPar.head._2 == 1)
+  }
+
+  test("Caso 2 - detectarConIndicePar: resuelve el Ejemplo 2 coincidiendo exactamente con detectarConIndice") {
+    val ejemplo2: Corpus = Vector(
+      ("e0", normalizar("la funcion recursiva termina cuando llega al caso base")),
+      ("e1", normalizar("toda funcion recursiva termina cuando llega al caso base")),
+      ("e2", normalizar("el paralelismo divide el trabajo en tareas independientes")),
+      ("e3", normalizar("el paralelismo divide el trabajo en hilos independientes"))
+    )
+    val resPar = detectarConIndicePar(ejemplo2, k = 3, umbral = 0.3, p = 5, corte = 2)
+    val resSec = detectarConIndice(ejemplo2, k = 3, umbral = 0.3, p = 5)
+
+    assert(resPar == Vector((0, 1, 0.75), (2, 3, 0.5)))
+    assert(resPar == resSec)
+  }
+
+  test("Caso 3 - detectarConIndicePar: con corpusConCopias ubica la pareja copiada de primera en el ranking") {
+    val corpus = corpusConCopias(n = 10, t = 45, v = 120, c = 2, f = 0.85)
+    val resPar = detectarConIndicePar(corpus, k = 3, umbral = 0.1, p = 5, corte = 4)
+    val resSec = detectarConIndice(corpus, k = 3, umbral = 0.1, p = 5)
+
+    assert(resPar.nonEmpty)
+    assert(Set((0, 10), (1, 11)).contains((resPar.head._1, resPar.head._2)))
+    assert(resPar == resSec)
+  }
+
+  test("Caso 4 - detectarConIndicePar: equivalencia extensional con detectarDirectoPar sobre corpus aleatorio con umbral > 0") {
+    val corpus = corpusConCopias(n = 20, t = 30, v = 25, c = 4, f = 0.6)
+    val directoPar = detectarDirectoPar(corpus, k = 3, umbral = 0.05, p = 15, corte = 8)
+    val indicePar = detectarConIndicePar(corpus, k = 3, umbral = 0.05, p = 15, corte = 8)
+
+    assert(indicePar == directoPar)
+  }
+
+  test("Caso 5 - detectarConIndicePar: documentos sin fragmentos compartidos o con t < k devuelven vector vacío") {
+    val sinSolape: Corpus = Vector(
+      ("d0", normalizar("uno dos tres cuatro")),
+      ("d1", normalizar("cinco seis siete ocho")),
+      ("d2", normalizar("nueve diez once doce"))
+    )
+    assert(detectarConIndicePar(sinSolape, k = 3, umbral = 0.1, p = 5, corte = 2) == Vector.empty[Medicion])
+
+    val muyCortos: Corpus = Vector(
+      ("c0", normalizar("dos palabras")),
+      ("c1", Vector.empty[String])
+    )
+    assert(detectarConIndicePar(muyCortos, k = 3, umbral = 0.1, p = 5, corte = 2) == Vector.empty[Medicion])
+  }
 }
