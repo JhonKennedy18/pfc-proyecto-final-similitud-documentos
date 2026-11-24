@@ -19,10 +19,10 @@ nota.
 
 | Nombre completo | Código |
 |---|---|
-| | |
-| | |
-| | |
-| | |
+| Jhon Kennedy Isaza Velez | 2559887 |
+| Emerson Erney Cuarán Lagos | 2559806 |
+| Juan Pablo Pillimue Hurtado | 2477332 |
+| Jhon Alex Rodríguez Benítez | 2669388 |
 
 ## El problema, en una línea
 
