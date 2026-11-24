@@ -9,6 +9,254 @@ import Similitud._
 class SimilitudPropiosTest extends AnyFunSuite {
 
   val eps = 1e-9
+  def frag(ws: String*): Fragmento = Vector(ws: _*)
+
+  // normalizar
+  test("normalizar 1: los signos de puntuacion separan y no dejan rastro") {
+    assert(normalizar("¡Hola, Mundo!") == Vector("hola", "mundo"))
+  }
+
+  test("normalizar 2: espacios repetidos, tabuladores y saltos de linea") {
+    assert(normalizar("  espacios   multiples\t y\nsaltos  ") ==
+      Vector("espacios", "multiples", "y", "saltos"))
+  }
+
+  test("normalizar 3: el texto vacio y el que solo tiene separadores dan vacio") {
+    assert(normalizar("") == Vector())
+    assert(normalizar("!!! ... ???") == Vector())
+    assert(normalizar("   \t\n ") == Vector())
+  }
+
+  test("normalizar 4: los digitos se conservan y todo lo demas separa") {
+    assert(normalizar("Version 2.0: x86-64, C3PO") ==
+      Vector("version", "2", "0", "x86", "64", "c3po"))
+    assert(normalizar("a_b/c") == Vector("a", "b", "c"))
+  }
+
+  test("normalizar 5: las letras con tilde y la ene son letras, no separan") {
+    assert(normalizar("ÁÉÍ ÑANDÚ canción") == Vector("áéí", "ñandú", "canción"))
+  }
+
+  test("normalizar 6: es idempotente y solo deja letras o digitos en minuscula") {
+    val textos = Vector("Hola, MUNDO!!", "  a--b  c ", "x1_y2", "", "¿Qué tal?")
+    textos.foreach { t =>
+      val n = normalizar(t)
+      assert(normalizar(n.mkString(" ")) == n)
+      assert(n.forall(w => w.nonEmpty && w == w.toLowerCase &&
+        w.forall(_.isLetterOrDigit)))
+    }
+  }
+
+  test("normalizar 7: un texto largo conserva el orden y la cantidad de palabras") {
+    val texto = (0 until 5000).map(i => "Palabra" + i + ",").mkString(" ")
+    val r = normalizar(texto)
+    assert(r.length == 5000 && r.head == "palabra0" && r.last == "palabra4999")
+  }
+
+
+  // fragmentos
+  test("fragmentos 1: ventanas de tres palabras sobre cinco") {
+    assert(fragmentos(Vector("a", "b", "c", "d", "e"), 3) ==
+      Vector(frag("a", "b", "c"), frag("b", "c", "d"), frag("c", "d", "e")))
+  }
+
+  test("fragmentos 2: con k = 1 cada palabra es un fragmento") {
+    assert(fragmentos(Vector("x", "y", "z"), 1) ==
+      Vector(frag("x"), frag("y"), frag("z")))
+  }
+
+  test("fragmentos 3: con t = k hay un solo fragmento, el documento entero") {
+    val ts = Vector("uno", "dos", "tres", "cuatro")
+    assert(fragmentos(ts, 4) == Vector(ts))
+  }
+
+  test("fragmentos 4: con menos de k palabras, y con ninguna, no hay fragmentos") {
+    assert(fragmentos(Vector("a", "b"), 3) == Vector())
+    assert(fragmentos(Vector(), 1) == Vector())
+    assert(fragmentos(Vector(), 5) == Vector())
+  }
+
+  test("fragmentos 5: los repetidos se conservan, es un vector y no un conjunto") {
+    val r = fragmentos(Vector("a", "a", "a", "a"), 2)
+    assert(r == Vector(frag("a", "a"), frag("a", "a"), frag("a", "a")))
+  }
+
+  test("fragmentos 6: la cantidad es max(0, t - k + 1) para todo t y k") {
+    val casos = for (t <- 0 to 8; k <- 1 to 8) yield (t, k)
+    casos.foreach { case (t, k) =>
+      val ts = Vector.tabulate(t)(i => "w" + i)
+      assert(fragmentos(ts, k).length == math.max(0, t - k + 1))
+    }
+  }
+
+  test("fragmentos 7: el i-esimo es la ventana que empieza en i") {
+    val ts = Vector.tabulate(1000)(i => "w" + i)
+    val r = fragmentos(ts, 4)
+    assert(r.length == 997)
+    assert(r.indices.forall(i => r(i) == ts.slice(i, i + 4)))
+  }
+
+  test("fragmentos 8: una entrada enorme no desborda la pila") {
+    val ts = Vector.tabulate(200000)(i => "w" + i)
+    val r = fragmentos(ts, 3)
+    assert(r.length == 199998)
+    assert(r.last == frag("w199997", "w199998", "w199999"))
+  }
+
+  test("fragmentos 9: con k menor que 1 no se rompe y devuelve vacio") {
+    assert(fragmentos(Vector("a", "b", "c"), 0) == Vector())
+    assert(fragmentos(Vector("a", "b", "c"), -2) == Vector())
+  }
+
+
+  // huella
+  test("huella 1: los fragmentos repetidos cuentan una sola vez") {
+    val d: Documento = ("r", Vector("a", "b", "a", "b", "a", "b"))
+    assert(huella(d, 2) == Set(frag("a", "b"), frag("b", "a")))
+  }
+
+  test("huella 2: sin repetidos el tamano es exactamente t - k + 1") {
+    val d: Documento = ("u", Vector("w1", "w2", "w3", "w4", "w5", "w6"))
+    val h = huella(d, 3)
+    assert(h.size == 4)
+    assert(h == Set(frag("w1", "w2", "w3"), frag("w2", "w3", "w4"),
+      frag("w3", "w4", "w5"), frag("w4", "w5", "w6")))
+  }
+
+  test("huella 3: un documento con menos de k palabras tiene huella vacia") {
+    assert(huella(("c", Vector("a", "b")), 3) == Set())
+    assert(huella(("v", Vector()), 1) == Set())
+  }
+
+  test("huella 4: con k = 1 es el conjunto de palabras distintas") {
+    val d: Documento = ("v", Vector("x", "y", "x", "z", "y"))
+    assert(huella(d, 1) == Set(frag("x"), frag("y"), frag("z")))
+  }
+
+  test("huella 5: una palabra repetida da un solo fragmento") {
+    val d: Documento = ("z", Vector.fill(10)("z"))
+    assert(huella(d, 3) == Set(frag("z", "z", "z")))
+  }
+
+  test("huella 6: el id no influye, solo las palabras") {
+    val ps = Vector("el", "gato", "come", "pescado")
+    assert(huella(("uno", ps), 2) == huella(("dos", ps), 2))
+  }
+
+  test("huella 7: |H| <= t - k + 1, con igualdad si y solo si no hay repetidos") {
+    val c = corpusAlAzar(40, 25, 4)
+    List(1, 2, 3).foreach { k =>
+      c.foreach { d =>
+        val fs = fragmentos(palabrasDoc(d), k)
+        val h = huella(d, k)
+        val tope = math.max(0, largoDoc(d) - k + 1)
+        assert(h.size <= tope)
+        assert((h.size == tope) == (fs.distinct.length == fs.length))
+      }
+    }
+  }
+
+
+  // huellas
+  test("huellas 1: un corpus vacio da un vector vacio") {
+    assert(huellas(Vector(), 3) == Vector())
+  }
+
+  test("huellas 2: un corpus de un documento da su huella") {
+    val d: Documento = ("solo", Vector("a", "b", "c", "d"))
+    assert(huellas(Vector(d), 2) ==
+      Vector(Set(frag("a", "b"), frag("b", "c"), frag("c", "d"))))
+  }
+
+  test("huellas 3: conserva el orden del corpus") {
+    val c: Corpus = Vector(
+      ("a", Vector("p", "q", "r", "s", "t")),
+      ("b", Vector("p", "q")),
+      ("c", Vector("m", "m", "m", "m")))
+    assert(huellas(c, 2).map(_.size) == Vector(4, 1, 1))
+    assert(huellas(c, 3).map(_.size) == Vector(3, 0, 1))
+  }
+
+  test("huellas 4: un documento corto deja su lugar con huella vacia") {
+    val c: Corpus = Vector(("corto", Vector("a")), ("largo", Vector("a", "b", "c")))
+    val hs = huellas(c, 2)
+    assert(hs.length == 2 && hs(0).isEmpty && hs(1).size == 2)
+  }
+
+  test("huellas 5: documentos con las mismas palabras tienen la misma huella") {
+    val ps = Vector("a", "b", "c", "d", "e")
+    val hs = huellas(Vector(("x", ps), ("y", ps)), 3)
+    assert(hs(0) == hs(1) && hs(0).size == 3)
+  }
+
+  test("huellas 6: es la huella de cada documento y hay una por documento") {
+    val c = corpusAlAzar(30, 40, 6)
+    val hs = huellas(c, 3)
+    assert(hs.length == c.length)
+    assert(hs.indices.forall(i => hs(i) == huella(c(i), 3)))
+  }
+
+
+  // jaccard
+  test("jaccard 1: dos huellas iguales y no vacias dan 1") {
+    val h = Set(frag("a"), frag("b"), frag("c"))
+    assert(jaccard(h, h) == 1.0)
+  }
+
+  test("jaccard 2: dos huellas disjuntas dan 0") {
+    assert(jaccard(Set(frag("a"), frag("b")), Set(frag("c"), frag("d"))) == 0.0)
+  }
+
+  test("jaccard 3: con una huella vacia, o con las dos, da 0 y no NaN") {
+    val h: Huella = Set(frag("a"))
+    assert(jaccard(Set(), Set()) == 0.0)
+    assert(jaccard(h, Set()) == 0.0)
+    assert(jaccard(Set(), h) == 0.0)
+  }
+
+  test("jaccard 4: 2 en comun y 5 en la union dan 0.4") {
+    val h1: Huella = Set(frag("a"), frag("b"), frag("c"))
+    val h2: Huella = Set(frag("b"), frag("c"), frag("d"), frag("e"))
+    assert(math.abs(jaccard(h1, h2) - 0.4) < eps)
+  }
+
+  test("jaccard 5: un subconjunto de 2 dentro de 8 da 0.25") {
+    val grande: Huella = (0 until 8).map(i => frag("g" + i)).toSet
+    val chico: Huella = Set(frag("g0"), frag("g5"))
+    assert(math.abs(jaccard(chico, grande) - 0.25) < eps)
+  }
+
+  test("jaccard 6: es simetrica y queda entre 0 y 1") {
+    val hs = huellas(corpusAlAzar(25, 30, 5), 2)
+    val pares = for (a <- hs; b <- hs) yield (a, b)
+    assert(pares.forall { case (a, b) =>
+      val j = jaccard(a, b)
+      j == jaccard(b, a) && j >= 0.0 && j <= 1.0
+    })
+  }
+
+  test("jaccard 7: coincide con |A inter B| / |A union B| calculado directo") {
+    val hs = huellas(corpusAlAzar(20, 30, 5), 2)
+    val pares = for (a <- hs; b <- hs if a.union(b).nonEmpty) yield (a, b)
+    assert(pares.forall { case (a, b) =>
+      math.abs(jaccard(a, b) -
+        a.intersect(b).size.toDouble / a.union(b).size) < eps
+    })
+  }
+
+  test("jaccard 8: conjuntos grandes, 5000 en comun de 15000 en la union") {
+    val a: Huella = (0 until 10000).map(i => frag(i.toString)).toSet
+    val b: Huella = (5000 until 15000).map(i => frag(i.toString)).toSet
+    assert(math.abs(jaccard(a, b) - 1.0 / 3.0) < eps)
+  }
+
+  test("jaccard 9: una copia parcial al 50% de un documento sin repetidos") {
+    val ts = Vector.tabulate(10)(i => "w" + i)
+    val copia = ts.take(5) ++ Vector.tabulate(5)(i => "z" + i)
+    val j = jaccard(huella(("o", ts), 2), huella(("c", copia), 2))
+    // 9 fragmentos cada uno, comparten los 4 primeros: 4 / (9 + 9 - 4)
+    assert(math.abs(j - 4.0 / 14.0) < eps)
+  }
 
   test("parejas 1: n <= 1 produce vector vacío") {
     assert(parejas(0) == Vector.empty[Pareja])
