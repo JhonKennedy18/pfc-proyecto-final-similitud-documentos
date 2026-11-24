@@ -158,4 +158,185 @@ class SimilitudPropiosTest extends AnyFunSuite {
   test("ranking 5: entrada vacía devuelve vector vacío") {
     assert(ranking(Vector.empty[Medicion], 0.0, 5).isEmpty)
   }
+
+
+
+
+
+
+  // ---------------------------------------------------------------------------
+  // Pruebas propias de detectarDirecto y detectarConIndice
+  // ---------------------------------------------------------------------------
+
+  def docJ(id: String, texto: String): Documento =
+    (id, texto.split(" ").toVector)
+
+  def cercaJ(a: Double, b: Double): Boolean = math.abs(a - b) < eps
+
+  def igualJ(r: Vector[Medicion], esperado: Vector[Medicion]): Boolean =
+    r.length == esperado.length &&
+      r.zip(esperado).forall { case ((i, j, s), (ei, ej, es)) =>
+        i == ei && j == ej && cercaJ(s, es)
+      }
+
+  // Con k = 3: (0,3) = 1 porque el 3 copia al 0; (0,1) = (1,3) = 1/2;
+  // (1,2) = 1/9; el resto da 0.
+  val dAJ: Corpus = Vector(
+    docJ("a0", "el gato negro duerme en casa"),
+    docJ("a1", "el gato negro duerme en el patio"),
+    docJ("a2", "un perro blanco juega en el patio"),
+    docJ("a3", "el gato negro duerme en casa")
+  )
+
+  // Con k = 1 (huella = conjunto de palabras): (0,1) = (1,2) = 1/2,
+  // (0,2) = 1/5 y el documento 3 no comparte nada.
+  val dBJ: Corpus = Vector(
+    docJ("b0", "a b c"),
+    docJ("b1", "b c d"),
+    docJ("b2", "c d e"),
+    docJ("b3", "x")
+  )
+
+  // Con k = 2: "a a a a a" tiene un solo fragmento (aa) aunque se repita.
+  // (0,1) = 1/2 y las demás parejas dan 0.
+  val dCJ: Corpus = Vector(
+    docJ("c0", "a a a a a"),
+    docJ("c1", "a a b"),
+    docJ("c2", "b b b")
+  )
+
+  // Con k = 2: cadena; solo las parejas adyacentes comparten un fragmento,
+  // y cada una da 1/3. El documento 4 queda aislado.
+  val iAJ: Corpus = Vector(
+    docJ("i0", "a b c"),
+    docJ("i1", "b c d"),
+    docJ("i2", "c d e"),
+    docJ("i3", "d e f"),
+    docJ("i4", "z z z")
+  )
+
+  // Con k = 2: el fragmento "x y" está en los cuatro documentos y cada uno
+  // tiene otro propio; las seis parejas dan 1/3.
+  val iBJ: Corpus = Vector(
+    docJ("h0", "x y a"),
+    docJ("h1", "x y b"),
+    docJ("h2", "x y c"),
+    docJ("h3", "x y d")
+  )
+
+  // Ninguna pareja comparte fragmentos.
+  val iCJ: Corpus = Vector(
+    docJ("n0", "a b"),
+    docJ("n1", "c d"),
+    docJ("n2", "e f")
+  )
+
+  // Con k = 2: (0,1) = 3/5; con k = 3: (0,1) = 1/2. El documento 2 no
+  // comparte nada.
+  val iEJ: Corpus = Vector(
+    docJ("m0", "a b c d e"),
+    docJ("m1", "a b c d f"),
+    docJ("m2", "q r s t u")
+  )
+
+  test("detectarDirecto 1: corpus vacío o de un documento no da parejas") {
+    assert(detectarDirecto(Vector.empty[Documento], 1, 0.1, 5).isEmpty)
+    assert(detectarDirecto(Vector(docJ("u", "a b c d")), 1, 0.0, 5).isEmpty)
+  }
+
+  test("detectarDirecto 2: una copia exacta encabeza y los empates 1/2 se ordenan por (i, j)") {
+    val esperado: Vector[Medicion] = Vector(
+      (0, 3, 1.0), (0, 1, 1.0 / 2.0), (1, 3, 1.0 / 2.0), (1, 2, 1.0 / 9.0))
+    assert(igualJ(detectarDirecto(dAJ, 3, 0.1, 10), esperado))
+    assert(igualJ(detectarDirecto(dAJ, 3, 0.1, 2), esperado.take(2)))
+    assert(igualJ(detectarDirecto(dAJ, 3, 0.9, 10), Vector((0, 3, 1.0))))
+  }
+
+  test("detectarDirecto 3: con k = 1 el umbral 0.5 es inclusivo y 0.51 lo excluye") {
+    assert(igualJ(detectarDirecto(dBJ, 1, 0.5, 10),
+      Vector((0, 1, 0.5), (1, 2, 0.5))))
+    assert(igualJ(detectarDirecto(dBJ, 1, 0.2, 10),
+      Vector((0, 1, 0.5), (1, 2, 0.5), (0, 2, 0.2))))
+    assert(detectarDirecto(dBJ, 1, 0.51, 10).isEmpty)
+  }
+
+  test("detectarDirecto 4: un fragmento repetido dentro de un documento cuenta una vez") {
+    assert(igualJ(detectarDirecto(dCJ, 2, 0.5, 10), Vector((0, 1, 0.5))))
+  }
+
+  test("detectarDirecto 5: con umbral 0 incluye las parejas de similitud cero") {
+    assert(igualJ(detectarDirecto(dBJ, 1, 0.0, 10), Vector(
+      (0, 1, 0.5), (1, 2, 0.5), (0, 2, 0.2),
+      (0, 3, 0.0), (1, 3, 0.0), (2, 3, 0.0))))
+    assert(igualJ(detectarDirecto(iCJ, 2, 0.0, 10),
+      Vector((0, 1, 0.0), (0, 2, 0.0), (1, 2, 0.0))))
+  }
+
+  test("detectarDirecto 6: con corpus al azar cumple sus invariantes") {
+    (1 to 10).foreach { _ =>
+      val c = corpusConCopias(9, 20, 4, 3, 0.7)
+      val hs = huellas(c, 3)
+      val r = detectarDirecto(c, 3, 0.15, 6)
+      assert(r.length <= 6)
+      assert(r.forall { case (i, j, s) =>
+        i < j && j < c.length && s >= 0.15 && s == jaccard(hs(i), hs(j))
+      })
+      assert(r.map(_._3) == r.map(_._3).sorted.reverse)
+    }
+  }
+
+  test("detectarConIndice 1: corpus vacío o de un documento no da parejas") {
+    assert(detectarConIndice(Vector.empty[Documento], 2, 0.1, 5).isEmpty)
+    assert(detectarConIndice(Vector(docJ("u", "a b c d")), 2, 0.0, 5).isEmpty)
+  }
+
+  test("detectarConIndice 2: en una cadena solo se miden las parejas adyacentes") {
+    val esperado: Vector[Medicion] = Vector(
+      (0, 1, 1.0 / 3.0), (1, 2, 1.0 / 3.0), (2, 3, 1.0 / 3.0))
+    assert(igualJ(detectarConIndice(iAJ, 2, 0.3, 10), esperado))
+    assert(igualJ(detectarConIndice(iAJ, 2, 0.0, 10), esperado))
+  }
+
+  test("detectarConIndice 3: un fragmento común a cuatro documentos y truncado a p") {
+    assert(igualJ(detectarConIndice(iBJ, 2, 0.3, 4), Vector(
+      (0, 1, 1.0 / 3.0), (0, 2, 1.0 / 3.0), (0, 3, 1.0 / 3.0),
+      (1, 2, 1.0 / 3.0))))
+    assert(detectarConIndice(iBJ, 2, 0.3, 10).length == 6)
+    assert(detectarConIndice(iBJ, 2, 0.3, 0).isEmpty)
+  }
+
+  test("detectarConIndice 4: sin fragmentos compartidos no devuelve nada ni con umbral 0") {
+    assert(detectarConIndice(iCJ, 2, 0.0, 10).isEmpty)
+    assert(detectarConIndice(iCJ, 2, 0.5, 10).isEmpty)
+  }
+
+  test("detectarConIndice 5: una pareja con varios fragmentos comunes sale una vez, con k = 2 y k = 3") {
+    assert(igualJ(detectarConIndice(iEJ, 2, 0.5, 10),
+      Vector((0, 1, 3.0 / 5.0))))
+    assert(igualJ(detectarConIndice(iEJ, 3, 0.5, 10),
+      Vector((0, 1, 0.5))))
+    assert(igualJ(detectarConIndice(iEJ, 3, 0.0, 10),
+      Vector((0, 1, 0.5))))
+  }
+
+  test("detectarConIndice 6: con corpus al azar solo mide parejas que comparten fragmento") {
+    (1 to 10).foreach { _ =>
+      val c = corpusConCopias(9, 20, 4, 3, 0.7)
+      val hs = huellas(c, 3)
+      val r = detectarConIndice(c, 3, 0.0, 100)
+      assert(r.forall { case (i, j, s) =>
+        i < j && (hs(i) intersect hs(j)).nonEmpty && s > 0.0
+      })
+      assert(r.map(_._3) == r.map(_._3).sorted.reverse)
+    }
+  }
+
+  test("detectarDirecto y detectarConIndice 7: coinciden con umbral positivo en corpus al azar") {
+    (1 to 20).foreach { _ =>
+      val c = corpusConCopias(10, 25, 5, 4, 0.6)
+      assert(detectarDirecto(c, 2, 0.1, 8) == detectarConIndice(c, 2, 0.1, 8))
+      assert(detectarDirecto(c, 3, 0.05, 100) ==
+        detectarConIndice(c, 3, 0.05, 100))
+    }
+  }
 }
