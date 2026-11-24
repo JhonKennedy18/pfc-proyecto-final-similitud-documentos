@@ -71,25 +71,42 @@ object Similitud {
    * Pasa el texto a minúsculas, convierte en separador todo carácter que no
    * sea letra o dígito y devuelve el vector de palabras no vacías.
    */
-  def normalizar(texto: String): Vector[String] = ???
+  def normalizar(texto: String): Vector[String] = {
+    val enMinusculas = texto.toLowerCase(java.util.Locale.ROOT)
+    val separado = enMinusculas.map(c => if (c.isLetterOrDigit) c else ' ')
+    separado.split(' ').toVector.filter(_.nonEmpty)
+  }
 
   /**
    * Los t - k + 1 fragmentos de k palabras consecutivas, en el orden en que
    * aparecen; el vector vacío si el documento tiene menos de k palabras.
    */
-  def fragmentos(ts: Vector[String], k: Int): Vector[Fragmento] = ???
+  def fragmentos(ts: Vector[String], k: Int): Vector[Fragmento] = {
+    @scala.annotation.tailrec
+    def desde(i: Int, acc: Vector[Fragmento]): Vector[Fragmento] =
+      if (ts.length - i < k) acc
+      else desde(i + 1, acc :+ ts.slice(i, i + k))
+    if (k < 1) Vector() else desde(0, Vector())
+  }
 
   /** El conjunto de fragmentos del documento: un repetido cuenta una vez. */
-  def huella(d: Documento, k: Int): Huella = ???
+  def huella(d: Documento, k: Int): Huella =
+    fragmentos(palabrasDoc(d), k).toSet
 
   /** Una huella por documento del corpus, en el mismo orden. */
-  def huellas(c: Corpus, k: Int): Vector[Huella] = ???
+  def huellas(c: Corpus, k: Int): Vector[Huella] =
+    c.map(d => huella(d, k))
 
   /**
    * Índice de Jaccard de dos huellas, el tamaño de la intersección sobre el de
    * la unión. Dos huellas vacías dan cero y no dividen por cero.
    */
-  def jaccard(h1: Huella, h2: Huella): Double = ???
+  def jaccard(h1: Huella, h2: Huella): Double = {
+    val (menor, mayor) = if (h1.size <= h2.size) (h1, h2) else (h2, h1)
+    val interseccion = menor.count(mayor.contains)
+    val union = h1.size + h2.size - interseccion
+    if (union == 0) 0.0 else interseccion.toDouble / union
+  }
 
   /** Las n (n - 1) / 2 parejas (i, j) con i < j, en orden. */
   def parejas(n: Int): Vector[Pareja] = ???
