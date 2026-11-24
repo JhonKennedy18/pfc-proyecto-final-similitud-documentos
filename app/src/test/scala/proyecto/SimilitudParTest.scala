@@ -108,6 +108,58 @@ class SimilitudParTest extends AnyFunSuite {
     assert(indiceInvertidoPar(huellas(c2, 3)) == indiceInvertido(huellas(c2, 3)))
   }
 
+  // Casos prueba de indiceInvertidoPar
+
+  test("Caso 1 - indiceInvertidoPar: coincide exactamente con indiceInvertido en el Ejemplo 2") {
+    val corpus: Corpus = Vector(
+      ("e0", normalizar("la funcion recursiva termina cuando llega al caso base")),
+      ("e1", normalizar("toda funcion recursiva termina cuando llega al caso base")),
+      ("e2", normalizar("el paralelismo divide el trabajo en tareas independientes")),
+      ("e3", normalizar("el paralelismo divide el trabajo en hilos independientes"))
+    )
+    val hs = huellas(corpus, 3)
+
+    assert(indiceInvertidoPar(hs) == indiceInvertido(hs))
+  }
+
+  test("Caso 2 - indiceInvertidoPar: corrige exactamente el desplazamiento cuando el mismo fragmento está en ambos extremos") {
+    val comun = Vector("fragmento", "compartido")
+    val hs: Vector[Huella] = Vector(
+      Set(comun, Vector("doc", "cero")),   // índice 0 (mitad izquierda)
+      Set(Vector("doc", "uno")),           // índice 1 (mitad izquierda)
+      Set(Vector("doc", "dos")),           // índice 2 (mitad derecha, local 0 -> +2 = 2)
+      Set(comun, Vector("doc", "tres")),   // índice 3 (mitad derecha, local 1 -> +2 = 3)
+      Set(comun, Vector("doc", "cuatro"))  // índice 4 (mitad derecha, local 2 -> +2 = 4)
+    )
+    val idxPar = indiceInvertidoPar(hs)
+
+    assert(idxPar(comun) == Set(0, 3, 4))
+    assert(idxPar(Vector("doc", "dos")) == Set(2))
+    assert(idxPar == indiceInvertido(hs))
+  }
+
+  test("Caso 3 - indiceInvertidoPar: vector vacío y de un solo elemento alcanzan el caso base correctamente") {
+    val vacio: Vector[Huella] = Vector.empty[Huella]
+    assert(indiceInvertidoPar(vacio) == Map.empty[Fragmento, Set[Int]])
+
+    val uno: Vector[Huella] = Vector(Set(Vector("unico", "elemento")))
+    assert(indiceInvertidoPar(uno) == indiceInvertido(uno))
+  }
+
+  test("Caso 4 - indiceInvertidoPar: maneja corpus de tamaño impar donde las mitades tienen distinto tamaño") {
+    val corpusImpar = corpusAlAzar(n = 9, t = 14, v = 5)
+    val hs = huellas(corpusImpar, 3)
+
+    assert(indiceInvertidoPar(hs) == indiceInvertido(hs))
+  }
+
+  test("Caso 5 - indiceInvertidoPar: equivalencia exacta en corpus grande con copias parciales") {
+    val corpus = corpusConCopias(n = 30, t = 25, v = 15, c = 5, f = 0.7)
+    val hs = huellas(corpus, 3)
+
+    assert(indiceInvertidoPar(hs) == indiceInvertido(hs))
+  }
+
   test("detectar: las cuatro versiones coinciden") {
     val directo = detectarDirecto(c2, 3, 0.3, 5)
     assert(detectarConIndice(c2, 3, 0.3, 5) == directo)

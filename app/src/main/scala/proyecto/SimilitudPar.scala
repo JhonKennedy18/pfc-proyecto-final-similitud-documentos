@@ -45,7 +45,20 @@ object SimilitudPar {
    * empieza en cero, así que sus documentos quedan desplazados respecto del
    * corpus completo, y nada en los tipos lo advierte.
    */
-  def indiceInvertidoPar(hs: Vector[Huella]): Indice = ???
+  def indiceInvertidoPar(hs: Vector[Huella]): Indice =
+    if (hs.length <= 1) indiceInvertido(hs)
+    else {
+      val mitad = hs.length / 2
+      val (izq, der) = hs.splitAt(mitad)
+      val (idxIzq, idxDer) = parallel(
+        indiceInvertidoPar(izq),
+        indiceInvertidoPar(der)
+      )
+      val idxDerDesplazado = idxDer.map {
+        case (frag, docs) => (frag, docs.map(_ + mitad))
+      }
+      fusionar(idxIzq, idxDerDesplazado)
+    }
 
   /** La solución directa, con las huellas y las comparaciones en paralelo. */
   def detectarDirectoPar(c: Corpus, k: Int, umbral: Double, p: Int,
